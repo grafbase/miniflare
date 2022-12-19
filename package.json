@@ -18,6 +18,7 @@
   "scripts": {
     "clean": "rimraf './packages/*/dist' './dist'",
     "build": "node scripts/build.mjs",
+    "prepare": "npm run build",
     "types:build": "tsc",
     "types:bundle": "npm run types:build && node scripts/types.mjs",
     "dev": "node scripts/build.mjs watch",

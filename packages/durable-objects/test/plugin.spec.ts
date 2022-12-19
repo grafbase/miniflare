@@ -250,12 +250,17 @@ test("DurableObjectsPlugin: getNamespace: creates namespace for object, creating
 });
 test("DurableObjectsPlugin: getNamespace: creates namespace for object in mounted script", async (t) => {
   const factory = new MemoryStorageFactory();
+  const mountedPlugin = new DurableObjectsPlugin(ctx, {
+    durableObjects: { TEST: "TestObject" },
+  });
+  mountedPlugin.beforeReload();
+  mountedPlugin.reload({}, { TestObject }, new Map());
   const plugin = new DurableObjectsPlugin(ctx, {
     durableObjects: { TEST: { className: "TestObject", scriptName: "test" } },
   });
   await plugin.beforeReload();
   const mounts = new Map<string, Mount>([
-    ["test", { moduleExports: { TestObject }, usageModel: "bundled" }],
+    ["test", { moduleExports: { TestObject }, usageModel: "bundled", DurableObjectsPlugin: mountedPlugin }],
   ]);
   plugin.reload({}, {}, mounts);
   const ns = plugin.getNamespace(factory, "TEST");

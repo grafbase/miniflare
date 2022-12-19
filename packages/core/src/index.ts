@@ -829,6 +829,7 @@ export class MiniflareCore<
           // `(Request) => Awaitable<Response>` too
           dispatchFetch: (request) => this[kDispatchFetch](request, true),
           usageModel: this.#instances!.CorePlugin.usageModel,
+          DurableObjectsPlugin: this.#instances!.DurableObjectsPlugin,
         } as _CoreMount);
       }
       // Add all other mounts
@@ -837,6 +838,7 @@ export class MiniflareCore<
           moduleExports: await mount.getModuleExports(),
           dispatchFetch: (request) => mount[kDispatchFetch](request, true),
           usageModel: mount.#instances!.CorePlugin.usageModel,
+          DurableObjectsPlugin: mount.#instances!.DurableObjectsPlugin,
         } as _CoreMount);
       }
       await this.#runAllReloads(mounts);

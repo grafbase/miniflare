@@ -1,3 +1,5 @@
+import { CorePluginSignatures, PluginInstances } from "@miniflare/core";
+import { DurableObjectsPlugin } from "@miniflare/durable-objects";
 import { MockAgent } from "undici";
 import { Compatibility } from "./compat";
 import { titleCase } from "./data";
@@ -88,6 +90,7 @@ export interface Mount<Request = any, Response = any> {
   moduleExports?: Context;
   dispatchFetch?: (request: Request) => Promise<Response>;
   usageModel?: UsageModel;
+  DurableObjectsPlugin?: DurableObjectsPlugin;
 }
 
 export interface PluginContext {

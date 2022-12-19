@@ -120,6 +120,7 @@ export class DurableObjectsPlugin
   #constructors = new Map<string, DurableObjectConstructor>();
   #bindings: Context = {};
 
+  #mounts = new Map<string, DurableObjectsPlugin>();
   readonly #objectStorages = new Map<string, DurableObjectStorage>();
   readonly #objectStates = new Map<string, DurableObjectState>();
 
@@ -187,22 +188,26 @@ export class DurableObjectsPlugin
     if (state !== undefined) return state;
 
     const objectName = id[kObjectName];
-    // `name` should not be passed to the constructed `state`:
-    // https://github.com/cloudflare/miniflare/issues/219
-    const unnamedId = new DurableObjectId(objectName, id.toString());
-    const objectStorage = this.getStorage(storage, id);
-
-    state = new DurableObjectState(unnamedId, objectStorage);
-    this.#objectStates.set(key, state);
-
     // Create and store new instance if none found
     const constructor = this.#constructors.get(objectName);
-    // Should've thrown error earlier in reload if class not found
-    assert(constructor);
+    if (constructor) {
+      // `name` should not be passed to the constructed `state`:
+      // https://github.com/cloudflare/miniflare/issues/219
+      const unnamedId = new DurableObjectId(objectName, id.toString());
+      const objectStorage = this.getStorage(storage, id);
 
-    state[kInstance] = new constructor(state, this.#bindings);
-    // We need to throw an error on "setAlarm" if the "alarm" method does not exist
-    if (!state[kInstance]?.alarm) objectStorage[kAlarmExists] = false;
+      state = new DurableObjectState(unnamedId, objectStorage);
+      this.#objectStates.set(key, state);
+
+      state[kInstance] = new constructor(state, this.#bindings);
+      // We need to throw an error on "setAlarm" if the "alarm" method does not exist
+      if (!state[kInstance]?.alarm) objectStorage[kAlarmExists] = false;
+    } else {
+      const doMount = this.#mounts.get(objectName);
+      // Should've thrown error earlier in reload if neither class nor mount exists
+      assert(doMount)
+      state = await doMount.getObject(storage, id);
+    }
 
     return state;
   }
@@ -301,32 +306,41 @@ export class DurableObjectsPlugin
     mounts: Map<string, Mount>
   ): void {
     this.#constructors.clear();
+    this.#mounts.clear();
     for (const { name, className, scriptName } of this.#processedObjects) {
       // Find constructor from main module exports or another scripts'
       let constructor;
       if (scriptName === undefined) {
         constructor = moduleExports[className];
+        if (constructor) {
+          this.#constructors.set(name, constructor);
+        } else {
+          throw new DurableObjectError(
+            "ERR_CLASS_NOT_FOUND",
+            `Class "${className}" for Durable Object "${name}" not found`
+          );
+        }
       } else {
-        const scriptExports = mounts.get(scriptName)?.moduleExports;
+        const mount = mounts.get(scriptName);
+        const scriptExports = mount?.moduleExports;
+        const doMount = mount?.DurableObjectsPlugin;
         if (!scriptExports) {
           throw new DurableObjectError(
             "ERR_SCRIPT_NOT_FOUND",
             `Script "${scriptName}" for Durable Object "${name}" not found.
 Make sure "${scriptName}" is mounted so Miniflare knows where to find it.`
           );
+        } else if (!(className in scriptExports)) {
+          throw new DurableObjectError(
+            "ERR_CLASS_NOT_FOUND",
+            `Class "${className}" in script "${scriptName}" for Durable Object "${name}" not found`
+          );
+        } else {
+          assert(doMount);
+          this.#mounts.set(name, doMount);
         }
-        constructor = scriptExports[className];
       }
 
-      if (constructor) {
-        this.#constructors.set(name, constructor);
-      } else {
-        const script = scriptName ? ` in script "${scriptName}"` : "";
-        throw new DurableObjectError(
-          "ERR_CLASS_NOT_FOUND",
-          `Class "${className}"${script} for Durable Object "${name}" not found`
-        );
-      }
     }
     this.#bindings = bindings;
     assert(
