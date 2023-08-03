@@ -1,4 +1,0 @@
-{
-  "name": "vitest-environment-miniflare-fixtures-autoload",
-  "module": "./worker.js"
-}
