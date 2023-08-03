@@ -28,5 +28,5 @@ jobs:
         run: |
           git config user.email "ci@grafbase.com"
           git config user.name "CI"
-          cd packages/miniflare
+          cd packages/core
           npx git-publish --remote https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY} --branch build-${GITHUB_REF_NAME}

@@ -92,7 +92,7 @@ function makeEnumerable<T>(prototype: any, instance: T, keys: (keyof T)[]) {
   }
 }
 
-function unimplemented(klass: string, property: string): never {
+function unimplementedProperty(klass: string, property: string): never {
   throw new Error(
     `Failed to get the '${property}' property on '${klass}': the property is not implemented.`
   );
@@ -400,20 +400,20 @@ const enumerableRequestKeys: (keyof Request)[] = [
 // `{...req}` to clone the init object. Instead, we use `in` checks and copy
 // them over if present.
 const requestInitKeys: (keyof RequestInit)[] = [
-  "method",
-  "keepalive",
-  "headers",
   "body",
-  "redirect",
-  "integrity",
-  "signal",
   "credentials",
-  "mode",
-  "referrer",
-  "referrerPolicy",
-  "window",
   "dispatcher",
   "duplex",
+  "headers",
+  "integrity",
+  "keepalive",
+  "method",
+  "mode",
+  "redirect",
+  "referrer",
+  "referrerPolicy",
+  "signal",
+  "window",
 ];
 function cloneRequestInit(init: RequestInit): RequestInit {
   const result: RequestInit = {};
@@ -423,11 +423,29 @@ function cloneRequestInit(init: RequestInit): RequestInit {
   return result;
 }
 
+// https://github.com/cloudflare/workerd/blob/eba4beaa5ea8f2f67f976cb1a228aa6eb72957d2/src/workerd/api/http.h#L529-L549
+const unimplementedInitProperties = [
+  "mode",
+  "credentials",
+  "cache",
+  "referrer",
+  "referrerPolicy",
+];
 export class Request extends Body<BaseRequest> {
   // noinspection TypeScriptFieldCanBeMadeReadonly
   #cf?: IncomingRequestCfProperties | RequestInitCfProperties;
 
   constructor(input: RequestInfo, init?: RequestInit) {
+    if (typeof init !== "undefined") {
+      for (const unimplementedInitProperty of unimplementedInitProperties) {
+        if (init.hasOwnProperty(unimplementedInitProperty)) {
+          throw new Error(
+            `Cloudflare Workers does not support the '${unimplementedInitProperty}' property on 'RequestInit'.`
+          );
+        }
+      }
+    }
+
     // If body is a FixedLengthStream, set Content-Length to its expected
     // length. We may replace `init.body` later on with a different stream, so
     // extract `contentLength` now.
@@ -511,19 +529,19 @@ export class Request extends Body<BaseRequest> {
 
   // Unimplemented properties
   get context(): never {
-    return unimplemented("Request", "context");
+    return unimplementedProperty("Request", "context");
   }
   get mode(): never {
-    return unimplemented("Request", "mode");
+    return unimplementedProperty("Request", "mode");
   }
   get credentials(): never {
-    return unimplemented("Request", "credentials");
+    return unimplementedProperty("Request", "credentials");
   }
   get integrity(): never {
-    return unimplemented("Request", "integrity");
+    return unimplementedProperty("Request", "integrity");
   }
   get cache(): never {
-    return unimplemented("Request", "cache");
+    return unimplementedProperty("Request", "cache");
   }
 }
 
@@ -716,10 +734,10 @@ export class Response<
 
   // Unimplemented properties
   get type(): never {
-    return unimplemented("Response", "type");
+    return unimplementedProperty("Response", "type");
   }
   get useFinalUrl(): never {
-    return unimplemented("Response", "useFinalUrl");
+    return unimplementedProperty("Response", "useFinalUrl");
   }
 }
 
